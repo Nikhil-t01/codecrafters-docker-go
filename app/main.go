@@ -1,24 +1,22 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"syscall"
+
+	"github.com/codecrafters-io/docker-starter-go/app/docker"
+	"github.com/codecrafters-io/docker-starter-go/app/util"
 )
 
 // Usage: your_docker.sh run <image> <command> <arg1> <arg2> ...
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	// fmt.Println("Logs from your program will appear here!")
-
-	// Uncomment this block to pass the first stage!
-	//
+	imageName := os.Args[2]
 	command := os.Args[3]
 	args := os.Args[4:len(os.Args)]
 
-	isolateFileSystem()
+	isolateFileSystem(imageName)
 
 	cmd := exec.Command(command, args...)
 	cmd.Stdin = os.Stdin
@@ -30,35 +28,28 @@ func main() {
 
 	err := cmd.Run()
 	exitCode := cmd.ProcessState.ExitCode()
-	if err != nil {
-		fmt.Printf("Err: %v", err)
-	}
-	os.Exit(exitCode)
+	util.ExitOnError(err, "Err", exitCode)
 }
 
-func isolateFileSystem() {
+func isolateFileSystem(imageName string) {
 	dir, err := os.MkdirTemp("", "tmp_my_docker_*")
-	processInternalError(err, "Error in creating temp directory")
+	util.ExitOnError(err, "Error in creating temp directory", 1)
 
-	err = os.Chmod(dir, 0755)
-	processInternalError(err, "Error in chmod of temp directory")
+	err = os.Chmod(dir, 0777)
+	util.ExitOnError(err, "Error in chmod of temp directory", 1)
+
+	image := docker.NewImage(imageName)
+	image.PullImage(dir)
 
 	err = os.MkdirAll(path.Join(dir, "/usr/local/bin"), 0755)
-	processInternalError(err, "Error in creating bin in the temp directory")
+	util.ExitOnError(err, "Error in creating bin in the temp directory", 1)
 
 	err = os.Link("/usr/local/bin/docker-explorer", path.Join(dir, "usr/local/bin/docker-explorer"))
-	processInternalError(err, "Error in copying exectable docker-explorer")
+	util.ExitOnError(err, "Error in copying exectable docker-explorer", 1)
 
 	err = syscall.Chroot(dir)
-	processInternalError(err, "Error in chroot into temp dir")
+	util.ExitOnError(err, "Error in chroot into temp dir", 1)
 
 	err = os.Chdir("/")
-	processInternalError(err, "Error in chdir into root dir")
-}
-
-func processInternalError(err error, errMsg string) {
-	if err != nil {
-		fmt.Printf("%s: %v\n", errMsg, err)
-		os.Exit(1)
-	}
+	util.ExitOnError(err, "Error in chdir into root dir", 1)
 }
