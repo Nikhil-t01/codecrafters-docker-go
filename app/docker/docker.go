@@ -19,21 +19,21 @@ type authTokenResponse struct {
 	Token       string `json:"token"`
 }
 
-type manifest struct {
-	Annotations map[string]string `json:"annotations"`
-	Digest      string            `json:"digest"`
-	MediaType   string            `json:"mediaType"`
-	Platform    struct {
-		Architecture string `json:"architecture"`
-		Os           string `json:"os"`
-	} `json:"platform"`
-	Size int `json:"size"`
+type layer struct {
+	MediaType string `json:"mediaType"`
+	Size      int    `json:"size"`
+	Digest    string `json:"digest"`
 }
 
 type manifestResponse struct {
-	MediaType     string     `json:"mediaType"`
-	Manifests     []manifest `json:"manifests"`
-	SchemaVersion int        `json:"schemaVersion"`
+	Config struct {
+		MediaType string `json:"mediaType"`
+		Size      int    `json:"size"`
+		Digest    string `json:"digest"`
+	} `json:"config"`
+	Layers        []layer `json:"layers"`
+	MediaType     string  `json:"mediaType"`
+	SchemaVersion int     `json:"schemaVersion"`
 }
 
 type Image struct {
@@ -69,11 +69,12 @@ func (image *Image) getManifests(token string) manifestResponse {
 	return response
 }
 
-func (image *Image) pullLayers(token string, manifests []manifest, destinationDirectory string) {
-	for _, layer := range manifests {
+func (image *Image) pullLayers(token string, layers []layer, destinationDirectory string) {
+	for _, layer := range layers {
 		url := fmt.Sprintf("https://registry.hub.docker.com/v2/%s/%s/blobs/%s", repository, image.name, layer.Digest)
 
 		headers := make(map[string]string)
+		headers["Accept"] = mediaTypeHeader
 		headers["Authorization"] = fmt.Sprintf("Bearer %s", token)
 
 		responseBody := *util.MakeGETRequest(url, headers)
@@ -95,14 +96,13 @@ func (image *Image) GetImageString() string {
 func (image *Image) PullImage(destinationDirectory string) {
 	tokenResponse := image.getAuthToken()
 	manifests := image.getManifests(tokenResponse.Token)
-	image.pullLayers(tokenResponse.Token, manifests.Manifests, destinationDirectory)
+	image.pullLayers(tokenResponse.Token, manifests.Layers, destinationDirectory)
 }
 
 func NewImage(imageString string) Image {
-	imageParts := strings.Split(imageString, ":")
-	if len(imageParts) < 2 {
-		return Image{name: imageParts[0], version: "latest"}
-	} else {
-		return Image{name: imageParts[0], version: imageParts[1]}
+	imageName, version, notLatest := strings.Cut(imageString, ":")
+	if !notLatest {
+		version = "latest"
 	}
+	return Image{name: imageName, version: version}
 }

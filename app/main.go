@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"os/exec"
-	"path"
 	"syscall"
 
 	"github.com/codecrafters-io/docker-starter-go/app/docker"
@@ -40,12 +39,6 @@ func isolateFileSystem(imageName string) {
 
 	image := docker.NewImage(imageName)
 	image.PullImage(dir)
-
-	err = os.MkdirAll(path.Join(dir, "/usr/local/bin"), 0755)
-	util.ExitOnError(err, "Error in creating bin in the temp directory", 1)
-
-	err = os.Link("/usr/local/bin/docker-explorer", path.Join(dir, "usr/local/bin/docker-explorer"))
-	util.ExitOnError(err, "Error in copying exectable docker-explorer", 1)
 
 	err = syscall.Chroot(dir)
 	util.ExitOnError(err, "Error in chroot into temp dir", 1)
