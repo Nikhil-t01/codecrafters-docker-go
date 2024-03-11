@@ -38,7 +38,9 @@ func ProcessError(err error, errorMessage string) {
 
 func ExitOnError(err error, errorMessage string, errorCode int) {
 	ProcessError(err, errorMessage)
-	os.Exit(errorCode)
+	if err != nil {
+		os.Exit(errorCode)
+	}
 }
 
 func UntarFile(sourceFilePath string, destinationDirectoryPath string) {
